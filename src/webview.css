@@ -1,0 +1,27 @@
+.container {
+    background-color: var(--joplin-background-color);
+    color: var(--joplin-color);
+    font-size: var(--joplin-font-size);
+    font-family: var(--joplin-font-family);
+}
+
+.todo-item a {
+    color: var(--joplin-color);
+    text-decoration: none;
+}
+
+.todo-lesser {
+    color: var(--joplin-color-faded);
+    font-style: italic;
+    font-size: 80%
+}
+
+.toolbarIcon {
+    font-size: var(--joplin-toolbar-icon-size);
+}
+.primary {
+    color: var(--joplin-color);
+}
+.secondary {
+    color: var(--joplin-color2);
+}
