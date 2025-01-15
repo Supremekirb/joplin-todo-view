@@ -3,6 +3,13 @@
     color: var(--joplin-color);
     font-size: var(--joplin-font-size);
     font-family: var(--joplin-font-family);
+    overflow-x: hidden;
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: var(--joplin-color) var(--joplin-background-color);
+    border-left: 1px solid var(--joplin-divider-color)
+    display: inline-block; /* or block */
+    height: 100vh;
 }
 
 .todo-item a {
