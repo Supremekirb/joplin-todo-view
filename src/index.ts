@@ -34,58 +34,6 @@ joplin.plugins.register({
                 return notes;
             }
         
-            // Categorize notes by their status
-            function categorizeNotes(notes) {
-                const now = Date.now();
-                const categories = {
-                    overdue: [],
-                    upcoming: [],
-                    noDueDate: [],
-                    completed: []
-                };
-        
-                notes.forEach(note => {
-                    if (!note.is_todo) return;
-        
-                    if (note.todo_completed) {
-                        categories.completed.push(note);
-                    } else if (note.todo_due) {
-                        categories[note.todo_due > now ? 'upcoming' : 'overdue'].push(note);
-                    } else {
-                        categories.noDueDate.push(note);
-                    }
-                });
-        
-                // Sort all categories
-                const sortByDate = (a, b) => a.todo_due - b.todo_due;
-                categories.overdue.sort(sortByDate);
-                categories.upcoming.sort(sortByDate);
-                categories.noDueDate.sort((a, b) => a.created_time - b.created_time);
-                categories.completed.sort((a, b) => b.todo_completed - a.todo_completed);
-        
-                return categories;
-            }
-        
-            // Generate HTML for a category
-            function generateCategoryHtml(title, notes) {
-                const content = notes.length === 0 
-                    ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
-                    : notes.map(note => noteHtml(note)).join('\n');
-        
-                return `
-                    <h2>${title}<hr></h2>
-                    ${content}
-                `;
-            }
-        
-            // Generate empty state HTML
-            function generateEmptyStateHtml() {
-                return `
-                    <p>Create a to-do to use this plugin.</p>
-                    <p>If you want to hide this panel, press the <i class="fas fa-rectangle-list"></i> icon in the toolbar.</p>
-                `;
-            }
-        
             try {
                 const notes = await fetchAllNotes();
                 
@@ -169,6 +117,38 @@ joplin.plugins.register({
 	},
 });
 
+// Categorize notes by their status
+function categorizeNotes(notes) {
+    const now = Date.now();
+    const categories = {
+        overdue: [],
+        upcoming: [],
+        noDueDate: [],
+        completed: []
+    };
+
+    notes.forEach(note => {
+        if (!note.is_todo) return;
+
+        if (note.todo_completed) {
+            categories.completed.push(note);
+        } else if (note.todo_due) {
+            categories[note.todo_due > now ? 'upcoming' : 'overdue'].push(note);
+        } else {
+            categories.noDueDate.push(note);
+        }
+    });
+
+    // Sort all categories
+    const sortByDate = (a, b) => a.todo_due - b.todo_due;
+    categories.overdue.sort(sortByDate);
+    categories.upcoming.sort(sortByDate);
+    categories.noDueDate.sort((a, b) => a.created_time - b.created_time);
+    categories.completed.sort((a, b) => b.todo_completed - a.todo_completed);
+
+    return categories;
+}
+
 function escapeHtml(unsafe:string) {
 	return unsafe
 		.replace(/&/g, "&amp;")
@@ -176,6 +156,14 @@ function escapeHtml(unsafe:string) {
 		.replace(/>/g, "&gt;")
 		.replace(/"/g, "&quot;")
 		.replace(/'/g, "&#039;");
+}
+
+// Generate empty state HTML
+function generateEmptyStateHtml() {
+    return `
+        <p>Create a to-do to use this plugin.</p>
+        <p>If you want to hide this panel, press the <i class="fas fa-rectangle-list"></i> icon in the toolbar.</p>
+    `;
 }
 
 function noteHtml(note) {
@@ -196,6 +184,18 @@ function noteHtml(note) {
                 </div>
             </a>
         </div>
+    `;
+}
+
+// Generate HTML for a category
+function generateCategoryHtml(title, notes) {
+    const content = notes.length === 0 
+        ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
+        : notes.map(note => noteHtml(note)).join('\n');
+
+    return `
+        <h2>${title}<hr></h2>
+        ${content}
     `;
 }
 
