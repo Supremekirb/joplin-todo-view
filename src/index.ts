@@ -21,17 +21,24 @@ joplin.plugins.register({
 		async function updateTodoView() {
         let notes = []
         let page_idx = 1
-        let result = (await joplin.data.get(["notes"], {fields: [
-                "id", "is_todo", "todo_due", "todo_completed", "title", "created_time"
-            ], page: page_idx}))
+        let result = (await joplin.data.get(["search"], {
+            fields: ["id", "is_todo", "todo_due", "todo_completed", "title", "created_time"],
+            query: "type:todo",
+            page: page_idx}))
         notes = notes.concat(result.items)
+
+        console.log(notes);
+
         while (result.has_more) {
             page_idx++
-            result = (await joplin.data.get(["notes"], {fields: [
-                    "id", "is_todo", "todo_due", "todo_completed", "title", "created_time"
-                ], page: page_idx}))
+            result = (await joplin.data.get(["search"], {
+                fields: ["id", "is_todo", "todo_due", "todo_completed", "title", "created_time"], 
+                query: "type:todo",
+                page: page_idx}))
             notes = notes.concat(result.items)
         }
+
+        console.log(notes);
 
             const itemHtml = [];
             itemHtml.push("<h1>To-do</h1>")
