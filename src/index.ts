@@ -222,10 +222,12 @@ function noteHtml(note, style) {
     }
 
     switch (style) {
+        // note: class "todo-goto-link" is for use in webview.js, not webview.css.
+        // don't make the same mistake I did and remove it because it's not in webview.css!
         case (displayStyles.Card): {
             return `
             <div class="todo-item">
-                <a href=# data-id="${escapeHtml(note.id)}">
+                <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}"> 
                     <div class="todo-content">
                         <div class="todo-title">${escapeHtml(formattedTitle)}</div>
                         <div class="todo-lesser">${escapeHtml(formattedDate)}</div>
@@ -237,7 +239,7 @@ function noteHtml(note, style) {
         case (displayStyles.List): {
             return `
             <p class="old-todo-item">
-                <a href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
+                <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
                 <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span>
             </p>
             `
