@@ -64,14 +64,15 @@ joplin.plugins.register({
 		});
 
 		async function updateTodoView() {
-            // Fetch all notes with pagination
-            async function fetchAllNotes() {
-                const fields = ["id", "is_todo", "todo_due", "todo_completed", "title", "created_time"];
+            // Fetch all todo notes with pagination
+            async function fetchAllTodos() {
+                const fields = ["id", "todo_due", "todo_completed", "title", "created_time"];
+                const query = "type:todo";
                 let notes = [];
                 let page = 1;
                 
                 while (true) {
-                    const result = await joplin.data.get(["notes"], { fields, page });
+                    const result = await joplin.data.get(["search"], {fields: fields, query: query, page: page});
                     notes = notes.concat(result.items);
                     if (!result.has_more) break;
                     page++;
@@ -80,7 +81,7 @@ joplin.plugins.register({
             }
         
             try {
-                const notes = await fetchAllNotes();
+                const notes = await fetchAllTodos();
                 
                 if (!notes || !notes.length) {
                     await joplin.views.panels.setHtml(panel, `
@@ -174,8 +175,6 @@ function categorizeNotes(notes) {
     };
 
     notes.forEach(note => {
-        if (!note.is_todo) return;
-
         if (note.todo_completed) {
             categories.completed.push(note);
         } else if (note.todo_due) {
