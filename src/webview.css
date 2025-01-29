@@ -7,21 +7,20 @@
     overflow-y: scroll;
     scrollbar-width: thin;
     scrollbar-color: var(--joplin-color) var(--joplin-background-color);
-    border-left: 1px solid var(--joplin-divider-color)
     display: inline-block; /* or block */
     height: 100vh;
 }
 
-/* .todo-item a {
+.old-todo-item a {
     color: var(--joplin-color);
     text-decoration: none;
 }
 
-.todo-lesser {
+.old-todo-lesser {
     color: var(--joplin-color-faded);
     font-style: italic;
     font-size: 80%
-} */
+}
 
 .toolbarIcon {
     font-size: var(--joplin-toolbar-icon-size);

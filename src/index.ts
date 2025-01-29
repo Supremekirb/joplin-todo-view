@@ -1,8 +1,53 @@
 import joplin from 'api';
-import { ToolbarButtonLocation } from 'api/types';
+import { SettingItemType, ToolbarButtonLocation } from 'api/types';
+
+const fa5PluginIcon = 'fas fa-list-ul'
+
+enum displayStyles {
+    Card, // new style
+    List, // classic style
+}
+
+const settingsSectionName = 'todo-view-settings'
+const settingDisplayStyle = 'todo-view-style'
+
+const registerSettings = async () => {
+    const sectionName = settingsSectionName;
+    await joplin.settings.registerSection(sectionName, {
+        label: "To-do View",
+        iconName: fa5PluginIcon
+    })
+
+    await joplin.settings.registerSettings({
+        [settingDisplayStyle]: {
+            section: sectionName,
+            label: "To-do item display style",
+            description: 
+                "Card is the modern and default style. List is the older but more compact style.",
+            public: true,
+            type: SettingItemType.Int,
+            value: displayStyles.Card,
+            isEnum: true,
+            options: {
+                [displayStyles.Card]: "Card",
+                [displayStyles.List]: "List"
+            }
+
+        }
+    })
+}
+
 
 joplin.plugins.register({
 	onStart: async function() {
+        // Register settings
+        await registerSettings();
+        // Settings change handler
+        joplin.settings.onChange(async (event) => {
+            await updateTodoView()
+        })
+        
+
 		// Create the panel object
         const panel = await joplin.views.panels.create('todo_panel');
 		await joplin.views.panels.addScript(panel, './webview.css');
@@ -49,14 +94,15 @@ joplin.plugins.register({
         
                 const categories = categorizeNotes(notes);
                 const hasAnyTodos = Object.values(categories).some(category => category.length > 0);
+                const style = await joplin.settings.value(settingDisplayStyle)
         
                 const content = hasAnyTodos
                     ? `
                         <h1>To-do</h1>
-                        ${generateCategoryHtml('Overdue', categories.overdue)}
-                        ${generateCategoryHtml('Upcoming', categories.upcoming)}
-                        ${generateCategoryHtml('No due date', categories.noDueDate)}
-                        ${generateCategoryHtml('Completed', categories.completed)}
+                        ${generateCategoryHtml('Overdue', categories.overdue, style)}
+                        ${generateCategoryHtml('Upcoming', categories.upcoming, style)}
+                        ${generateCategoryHtml('No due date', categories.noDueDate, style)}
+                        ${generateCategoryHtml('Completed', categories.completed, style)}
                     `
                     : `
                         <h1>To-do</h1>
@@ -97,7 +143,7 @@ joplin.plugins.register({
         await joplin.commands.register({
 			name: 'toggleTodoView',
 			label: 'Toggle to-do view',
-			iconName: 'fas fa-list-ul', // seems like list-rectangle isn't supported :(
+			iconName: fa5PluginIcon, // seems like list-rectangle isn't supported :(
 			execute: async () => {
 				const isVisible = await joplin.views.panels.visible(panel);
 				await joplin.views.panels.show(panel, !isVisible);
@@ -162,11 +208,11 @@ function escapeHtml(unsafe:string) {
 function generateEmptyStateHtml() {
     return `
         <p>Create a to-do to use this plugin.</p>
-        <p>If you want to hide this panel, press the <i class="fas fa-rectangle-list"></i> icon in the toolbar.</p>
+        <p>If you want to hide this panel, press the list icon in the toolbar.</p>
     `;
 }
 
-function noteHtml(note) {
+function noteHtml(note, style) {
     let formattedTitle = "<untitled>"
     if (note.title) {
         formattedTitle = note.title
@@ -175,23 +221,36 @@ function noteHtml(note) {
     if (note.todo_due > 0) {
         formattedDate = new Date(note.todo_due).toLocaleString()
     }
-    return `
-        <div class="todo-item">
-            <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">
-                <div class="todo-content">
-                    <div class="todo-title">${escapeHtml(formattedTitle)}</div>
-                    <div class="todo-lesser">${escapeHtml(formattedDate)}</div>
-                </div>
-            </a>
-        </div>
-    `;
+
+    switch (style) {
+        case (displayStyles.Card): {
+            return `
+            <div class="todo-item">
+                <a href=# data-id="${escapeHtml(note.id)}">
+                    <div class="todo-content">
+                        <div class="todo-title">${escapeHtml(formattedTitle)}</div>
+                        <div class="todo-lesser">${escapeHtml(formattedDate)}</div>
+                    </div>
+                </a>
+            </div>
+            `
+        }
+        case (displayStyles.List): {
+            return `
+            <p class="old-todo-item">
+                <a href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
+                <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span>
+            </p>
+            `
+        }
+    }
 }
 
 // Generate HTML for a category
-function generateCategoryHtml(title, notes) {
+function generateCategoryHtml(title, notes, style) {
     const content = notes.length === 0 
-        ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
-        : notes.map(note => noteHtml(note)).join('\n');
+    ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
+    : notes.map(note => noteHtml(note, style)).join('\n');
 
     return `
         <h2>${title}<hr></h2>
