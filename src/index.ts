@@ -1,8 +1,53 @@
 import joplin from 'api';
-import { ToolbarButtonLocation } from 'api/types';
+import { SettingItemType, ToolbarButtonLocation } from 'api/types';
+
+const fa5PluginIcon = 'fas fa-list-ul'
+
+enum displayStyles {
+    Card, // new style
+    List, // classic style
+}
+
+const settingsSectionName = 'todo-view-settings'
+const settingDisplayStyle = 'todo-view-style'
+
+const registerSettings = async () => {
+    const sectionName = settingsSectionName;
+    await joplin.settings.registerSection(sectionName, {
+        label: "To-do View",
+        iconName: fa5PluginIcon
+    })
+
+    await joplin.settings.registerSettings({
+        [settingDisplayStyle]: {
+            section: sectionName,
+            label: "To-do item display style",
+            description: 
+                "Card is the modern and default style. List is the older but more compact style.",
+            public: true,
+            type: SettingItemType.Int,
+            value: displayStyles.Card,
+            isEnum: true,
+            options: {
+                [displayStyles.Card]: "Card",
+                [displayStyles.List]: "List"
+            }
+
+        }
+    })
+}
+
 
 joplin.plugins.register({
 	onStart: async function() {
+        // Register settings
+        await registerSettings();
+        // Settings change handler
+        joplin.settings.onChange(async (event) => {
+            await updateTodoView()
+        })
+        
+
 		// Create the panel object
         const panel = await joplin.views.panels.create('todo_panel');
 		await joplin.views.panels.addScript(panel, './webview.css');
@@ -19,111 +64,62 @@ joplin.plugins.register({
 		});
 
 		async function updateTodoView() {
-        let notes = []
-        let page_idx = 1
-        let result = (await joplin.data.get(["notes"], {fields: [
-                "id", "is_todo", "todo_due", "todo_completed", "title", "created_time"
-            ], page: page_idx}))
-        notes = notes.concat(result.items)
-        while (result.has_more) {
-            page_idx++
-            result = (await joplin.data.get(["notes"], {fields: [
-                    "id", "is_todo", "todo_due", "todo_completed", "title", "created_time"
-                ], page: page_idx}))
-            notes = notes.concat(result.items)
-        }
-
-            const itemHtml = [];
-            itemHtml.push("<h1>To-do</h1>")
-			if (notes) {
-                const notesBeforeNow = []
-                const notesAfterNow = []
-                const notesNoDueDate = []
-                const notesCompleted = []
-                const now = Date.now()
-                for (const note of notes) {
-                    if (!note.is_todo) {
-                        continue
-                    }
-                    else {
-                        if (note.todo_completed) { // completed notes don't need to worry about the due date
-                            notesCompleted.push(note)
-                        } else {
-                            if (note.todo_due) { // sort notes with a due date
-                                if (note.todo_due > now) {
-                                    notesAfterNow.push(note) // notes in the future
-                                } else {
-                                    notesBeforeNow.push(note) // notes overdue
-                                }
-                            } else {
-                                notesNoDueDate.push(note) // notes with no due date go here
-                                }
-                            }
-                        }
-                    }
-
-                    notesBeforeNow.sort(function(a, b) { // sort from next due to last due
-                        return a.todo_due - b.todo_due
-                    })
-                    notesAfterNow.sort(function(a, b) { // sort from next due to last due
-                        return a.todo_due - b.todo_due
-                    })
-                    notesNoDueDate.sort(function(a, b) { // sort from oldest to newest
-                        return a.created_time - b.created_time
-                    })
-                    notesCompleted.sort(function(b, a) { // sort from most recent completed to oldest completed
-                        return a.todo_completed - b.todo_completed
-                    })
-                    
-                    itemHtml.push("<h2>Overdue<hr></h2>")
-                    if (notesBeforeNow.length == 0) {
-                        itemHtml.push("<span class=todo-lesser>No overdue to-dos!</span>")
-                    } else {
-                        for (const overdueNote of notesBeforeNow) {
-                            itemHtml.push(noteHtml(overdueNote))
-                        }
-                    }
-                    itemHtml.push("<h2>Upcoming<hr></h2>")
-                    if (notesAfterNow.length == 0) {
-                        itemHtml.push("<span class=todo-lesser>No upcoming to-dos!</span>")
-                    } else {
-                        for (const upcomingNote of notesAfterNow) {
-                            itemHtml.push(noteHtml(upcomingNote))
-                        }
-                    }
-                    itemHtml.push("<h2>No due date<hr></h2>")
-                    if (notesNoDueDate.length == 0) {
-                        itemHtml.push("<span class=todo-lesser>No to-dos without due dates.</span>")
-                    } else {
-                        for (const noDueNote of notesNoDueDate) {
-                            itemHtml.push(noteHtml(noDueNote))
-                        }
-                    }
-                    itemHtml.push("<h2>Completed<hr></h2>")
-                    if (notesCompleted.length == 0) {
-                        itemHtml.push("<span class=todo-lesser>No completed to-dos.</span>")
-                    } else {
-                        for (const completedNote of notesCompleted) {
-                            itemHtml.push(noteHtml(completedNote))
-                        }
-                    }
-                if (notesBeforeNow.length == 0 && notesAfterNow.length == 0 && notesCompleted.length == 0 && notesNoDueDate.length == 0) {
-                    // no todo notes
-                    itemHtml.length = 1 // clear all but header
-                    itemHtml.push(`<p>Create a to-do to use this plugin.</p>
-                        <p>If you want to hide this panel, press the <i class="fas fa-rectangle-list"></i> icon in the toolbar.</p>`)
+            // Fetch all notes with pagination
+            async function fetchAllNotes() {
+                const fields = ["id", "is_todo", "todo_due", "todo_completed", "title", "created_time"];
+                let notes = [];
+                let page = 1;
+                
+                while (true) {
+                    const result = await joplin.data.get(["notes"], { fields, page });
+                    notes = notes.concat(result.items);
+                    if (!result.has_more) break;
+                    page++;
                 }
-                } else { // no notes at all! what are you even using Joplin for?
-                    itemHtml.length = 1
-                    itemHtml.push(`<p>Create a to-do to use this plugin.</p>
-                                   <p>If you want to hide this panel, press the <i class="fas fa-rectangle-list"></i> icon in the toolbar.</p>`)
-                }
-                await joplin.views.panels.setHtml(panel, `
-					<div class="container">
-						${itemHtml.join('\n')}
-					</div>
-                `)
+                return notes;
             }
+        
+            try {
+                const notes = await fetchAllNotes();
+                
+                if (!notes || !notes.length) {
+                    await joplin.views.panels.setHtml(panel, `
+                        <div class="container">
+                            <h1>To-do</h1>
+                            ${generateEmptyStateHtml()}
+                        </div>
+                    `);
+                    return;
+                }
+        
+                const categories = categorizeNotes(notes);
+                const hasAnyTodos = Object.values(categories).some(category => category.length > 0);
+                const style = await joplin.settings.value(settingDisplayStyle)
+        
+                const content = hasAnyTodos
+                    ? `
+                        <h1>To-do</h1>
+                        ${generateCategoryHtml('Overdue', categories.overdue, style)}
+                        ${generateCategoryHtml('Upcoming', categories.upcoming, style)}
+                        ${generateCategoryHtml('No due date', categories.noDueDate, style)}
+                        ${generateCategoryHtml('Completed', categories.completed, style)}
+                    `
+                    : `
+                        <h1>To-do</h1>
+                        ${generateEmptyStateHtml()}
+                    `;
+        
+                await joplin.views.panels.setHtml(panel, `
+                    <div class="container">
+                        ${content}
+                    </div>
+                `);
+        
+            } catch (error) {
+                console.error('Error updating todo view:', error);
+                // Optionally show error state to user
+            }
+        }
 
         // Event handling
         // Currently borked:
@@ -147,7 +143,7 @@ joplin.plugins.register({
         await joplin.commands.register({
 			name: 'toggleTodoView',
 			label: 'Toggle to-do view',
-			iconName: 'fas fa-list-ul', // seems like list-rectangle isn't supported :(
+			iconName: fa5PluginIcon, // seems like list-rectangle isn't supported :(
 			execute: async () => {
 				const isVisible = await joplin.views.panels.visible(panel);
 				await joplin.views.panels.show(panel, !isVisible);
@@ -167,6 +163,38 @@ joplin.plugins.register({
 	},
 });
 
+// Categorize notes by their status
+function categorizeNotes(notes) {
+    const now = Date.now();
+    const categories = {
+        overdue: [],
+        upcoming: [],
+        noDueDate: [],
+        completed: []
+    };
+
+    notes.forEach(note => {
+        if (!note.is_todo) return;
+
+        if (note.todo_completed) {
+            categories.completed.push(note);
+        } else if (note.todo_due) {
+            categories[note.todo_due > now ? 'upcoming' : 'overdue'].push(note);
+        } else {
+            categories.noDueDate.push(note);
+        }
+    });
+
+    // Sort all categories
+    const sortByDate = (a, b) => a.todo_due - b.todo_due;
+    categories.overdue.sort(sortByDate);
+    categories.upcoming.sort(sortByDate);
+    categories.noDueDate.sort((a, b) => a.created_time - b.created_time);
+    categories.completed.sort((a, b) => b.todo_completed - a.todo_completed);
+
+    return categories;
+}
+
 function escapeHtml(unsafe:string) {
 	return unsafe
 		.replace(/&/g, "&amp;")
@@ -176,7 +204,15 @@ function escapeHtml(unsafe:string) {
 		.replace(/'/g, "&#039;");
 }
 
-function noteHtml(note) {
+// Generate empty state HTML
+function generateEmptyStateHtml() {
+    return `
+        <p>Create a to-do to use this plugin.</p>
+        <p>If you want to hide this panel, press the list icon in the toolbar.</p>
+    `;
+}
+
+function noteHtml(note, style) {
     let formattedTitle = "<untitled>"
     if (note.title) {
         formattedTitle = note.title
@@ -185,10 +221,40 @@ function noteHtml(note) {
     if (note.todo_due > 0) {
         formattedDate = new Date(note.todo_due).toLocaleString()
     }
+
+    switch (style) {
+        case (displayStyles.Card): {
+            return `
+            <div class="todo-item">
+                <a href=# data-id="${escapeHtml(note.id)}">
+                    <div class="todo-content">
+                        <div class="todo-title">${escapeHtml(formattedTitle)}</div>
+                        <div class="todo-lesser">${escapeHtml(formattedDate)}</div>
+                    </div>
+                </a>
+            </div>
+            `
+        }
+        case (displayStyles.List): {
+            return `
+            <p class="old-todo-item">
+                <a href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
+                <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span>
+            </p>
+            `
+        }
+    }
+}
+
+// Generate HTML for a category
+function generateCategoryHtml(title, notes, style) {
+    const content = notes.length === 0 
+    ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
+    : notes.map(note => noteHtml(note, style)).join('\n');
+
     return `
-        <p class="todo-item">
-            <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
-            <span class="todo-lesser">${escapeHtml(formattedDate)}</span>
-        </p>
+        <h2>${title}<hr></h2>
+        ${content}
     `;
 }
+
