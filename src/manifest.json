@@ -10,6 +10,7 @@
 	"repository_url": "https://github.com/supremekirb/joplin-todo-view",
 	"keywords": ["todo", "productivity"],
 	"categories": ["productivity", "personal knowledge management"],
+	"platforms": ["desktop", "mobile"],
 	"screenshots": [
 		{
 			"src": "assets/screenshots/example.png",
