@@ -14,12 +14,3 @@ document.addEventListener('click', event => {
 		})
 	}
 })
-
-document.addEventListener('changed', event => {
-	const element = event.target;
-	if (element.className === 'todo-checkbox') {
-		webviewApi.postMessage({
-			name: 'reload',
-		})
-	}
-})

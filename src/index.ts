@@ -116,10 +116,6 @@ joplin.plugins.register({
                     await joplin.data.put(["notes", message.id], null, {
                         todo_completed: message.state ? Date.now() : 0
                     })
-                    break;
-                }
-                // reload view
-                case 'reload': {
                     await updateTodoView()
                     break;
                 }
@@ -146,7 +142,7 @@ joplin.plugins.register({
 
             try {
                 // set background colour
-                let bgCss = "background-color:var(--joplin-background-color2)"
+                let bgCss = "background-color:var(--joplin-background-color3)"
                 const bgStyle: backgroundStyles = await joplin.settings.value(settingBackgroundStyle)
                 switch (bgStyle) {
                     case backgroundStyles.Editor: {
