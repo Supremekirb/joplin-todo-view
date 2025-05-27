@@ -1,5 +1,4 @@
 .container {
-    background-color: var(--joplin-background-color);
     color: var(--joplin-color);
     font-size: var(--joplin-font-size);
     font-family: var(--joplin-font-family);
@@ -9,6 +8,8 @@
     scrollbar-color: var(--joplin-color) var(--joplin-background-color);
     display: inline-block; /* or block */
     height: 100vh;
+    padding-left: var(--joplin-margin-left);
+    padding-right: var(--joplin-margin-right);
 }
 
 .old-todo-item a {

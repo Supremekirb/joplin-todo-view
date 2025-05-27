@@ -8,11 +8,17 @@ const enum displayStyles {
     List, // classic style
 }
 
+const enum backgroundStyles {
+    Editor, // match edtior. --joplin-background-color
+    Default, // match note sidebar. --joplin-background-color3
+}
+
 const settingsSectionName = 'todo-view-settings'
 const settingDisplayStyle = 'todo-view-style'
 const settingTruncateMidnight = 'todo-view-truncate-midnight'
 const settingHideCompleted = 'todo-view-hide-completed'
 const settingShowCheckbox = 'todo-view-show-checkbox'
+const settingBackgroundStyle = 'todo-view-bg-style'
 
 const registerSettings = async () => {
     const sectionName = settingsSectionName;
@@ -60,6 +66,20 @@ const registerSettings = async () => {
             public: true,
             type: SettingItemType.Bool,
             value: true
+        },
+        [settingBackgroundStyle]: {
+            section: sectionName,
+            label: "To-do panel background style",
+            description:
+                "The background colour can be changed to make it distinct from the editing space.",
+            public: true,
+            type: SettingItemType.Int,
+            value: backgroundStyles.Default,
+            isEnum: true,
+            options: {
+                [backgroundStyles.Default]: "Default",
+                [backgroundStyles.Editor]: "Match editor",
+            }
         }
     })
 }
@@ -89,16 +109,19 @@ joplin.plugins.register({
                 // goto note
                 case 'openNote': {
                     joplin.commands.execute('openNote', message.id)
+                    break;
                 }
                 // toggle todo state
                 case 'setChecked': {
                     await joplin.data.put(["notes", message.id], null, {
                         todo_completed: message.state ? Date.now() : 0
                     })
+                    break;
                 }
                 // reload view
                 case 'reload': {
                     await updateTodoView()
+                    break;
                 }
             }
 
@@ -122,11 +145,26 @@ joplin.plugins.register({
             }
 
             try {
+                // set background colour
+                let bgCss = "background-color:var(--joplin-background-color2)"
+                const bgStyle: backgroundStyles = await joplin.settings.value(settingBackgroundStyle)
+                switch (bgStyle) {
+                    case backgroundStyles.Editor: {
+                        bgCss = "background-color:var(--joplin-background-color)"
+                        break;
+                    }
+                    case backgroundStyles.Default: {
+                        bgCss = "background-color:var(--joplin-background-color3)"
+                        break;
+                    }
+                }
+
+                // generate the html
                 const notes = await fetchAllTodos();
 
                 if (!notes || !notes.length) {
                     await joplin.views.panels.setHtml(panel, `
-                        <div class="container">
+                        <div class="container" style=${bgCss}>
                             <h1>To-do</h1>
                             ${generateEmptyStateHtml()}
                         </div>
@@ -155,7 +193,7 @@ joplin.plugins.register({
                     `;
 
                 await joplin.views.panels.setHtml(panel, `
-                    <div class="container">
+                    <div class="container" style=${bgCss}>
                         ${content}
                     </div>
                 `);
