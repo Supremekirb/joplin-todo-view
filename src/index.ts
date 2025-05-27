@@ -12,6 +12,7 @@ const settingsSectionName = 'todo-view-settings'
 const settingDisplayStyle = 'todo-view-style'
 const settingTruncateMidnight = 'todo-view-truncate-midnight'
 const settingHideCompleted = 'todo-view-hide-completed'
+const settingShowCheckbox = 'todo-view-show-checkbox'
 
 const registerSettings = async () => {
     const sectionName = settingsSectionName;
@@ -50,6 +51,15 @@ const registerSettings = async () => {
             public: true,
             type: SettingItemType.Bool,
             value: false
+        },
+        [settingShowCheckbox]: {
+            section: sectionName,
+            label: "Show checkboxes on to-do items",
+            description:
+                "Display a checkbox that allows to-do completion to be toggled.",
+            public: true,
+            type: SettingItemType.Bool,
+            value: true
         }
     })
 }
@@ -73,11 +83,25 @@ joplin.plugins.register({
         // Set some initial content while the todo list is being created
         await joplin.views.panels.setHtml(panel, 'Loading todo list...');
 
-        // goto note
-        await joplin.views.panels.onMessage(panel, (message: any) => {
-            if (message.name === 'openNote') {
-                joplin.commands.execute('openNote', message.id)
+        // Message handling
+        await joplin.views.panels.onMessage(panel, async (message: any) => {
+            switch (message.name) {
+                // goto note
+                case 'openNote': {
+                    joplin.commands.execute('openNote', message.id)
+                }
+                // toggle todo state
+                case 'setChecked': {
+                    await joplin.data.put(["notes", message.id], null, {
+                        todo_completed: message.state ? Date.now() : 0
+                    })
+                }
+                // reload view
+                case 'reload': {
+                    await updateTodoView()
+                }
             }
+
         });
 
         async function updateTodoView() {
@@ -115,14 +139,15 @@ joplin.plugins.register({
                 const style = await joplin.settings.value(settingDisplayStyle)
                 const truncateMidnight = await joplin.settings.value(settingTruncateMidnight)
                 const hideCompleted = await joplin.settings.value(settingHideCompleted)
+                const showCheckbox = await joplin.settings.value(settingShowCheckbox)
 
                 const content = hasAnyTodos
                     ? `
                         <h1>To-do</h1>
-                        ${generateCategoryHtml('Overdue', categories.overdue, style, truncateMidnight)}
-                        ${generateCategoryHtml('Upcoming', categories.upcoming, style, truncateMidnight)}
-                        ${generateCategoryHtml('No due date', categories.noDueDate, style, truncateMidnight)}
-                        ${!hideCompleted ? generateCategoryHtml('Completed', categories.completed, style, truncateMidnight) : ""}
+                        ${generateCategoryHtml('Overdue', categories.overdue, style, truncateMidnight, showCheckbox)}
+                        ${generateCategoryHtml('Upcoming', categories.upcoming, style, truncateMidnight, showCheckbox)}
+                        ${generateCategoryHtml('No due date', categories.noDueDate, style, truncateMidnight, showCheckbox)}
+                        ${!hideCompleted ? generateCategoryHtml('Completed', categories.completed, style, truncateMidnight, showCheckbox) : ""}
                     `
                     : `
                         <h1>To-do</h1>
@@ -230,7 +255,7 @@ function generateEmptyStateHtml() {
     `;
 }
 
-function noteHtml(note, style, truncate_midnight) {
+function noteHtml(note, style, truncate_midnight, show_checkbox) {
     let formattedTitle = "<untitled>"
     if (note.title) {
         formattedTitle = note.title
@@ -250,6 +275,7 @@ function noteHtml(note, style, truncate_midnight) {
             formattedDate = dueDate.toLocaleString()
         }
     }
+    let checkbox = show_checkbox ? `<input class="todo-checkbox" type="checkbox" data-id="${escapeHtml(note.id)}" ${note.todo_completed ? "checked" : ""}>` : ''
 
     switch (style) {
         // note: class "todo-goto-link" is for use in webview.js, not webview.css.
@@ -257,6 +283,7 @@ function noteHtml(note, style, truncate_midnight) {
         case (displayStyles.Card): {
             return `
             <div class="todo-item">
+                ${checkbox}
                 <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}"> 
                     <div class="todo-content">
                         <div class="todo-title">${escapeHtml(formattedTitle)}</div>
@@ -269,6 +296,7 @@ function noteHtml(note, style, truncate_midnight) {
         case (displayStyles.List): {
             return `
             <p class="old-todo-item">
+                ${checkbox}
                 <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
                 <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span>
             </p>
@@ -278,10 +306,10 @@ function noteHtml(note, style, truncate_midnight) {
 }
 
 // Generate HTML for a category
-function generateCategoryHtml(title, notes, style, truncate_midnight) {
+function generateCategoryHtml(title, notes, style, truncate_midnight, show_checkbox) {
     const content = notes.length === 0
         ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
-        : notes.map(note => noteHtml(note, style, truncate_midnight)).join('\n');
+        : notes.map(note => noteHtml(note, style, truncate_midnight, show_checkbox)).join('\n');
 
     return `
         <h2>${title}<hr></h2>
