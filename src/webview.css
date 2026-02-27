@@ -23,6 +23,10 @@
     font-size: 80%
 }
 
+.todo-no-items {
+    margin: 1em;
+}
+
 .toolbarIcon {
     font-size: var(--joplin-toolbar-icon-size);
 }
@@ -70,4 +74,39 @@
     color: var(--joplin-color-faded);
     font-style: italic;
     font-size: 80%;
+}
+
+.todo-header-collapse {
+    color: var(--joplin-color);
+    background-color: inherit;
+    cursor: pointer;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: large;
+    font-weight: bold;
+}
+
+.todo-item-list {
+    overflow: hidden;
+    transition: max-height 0.1s ease-out;
+    will-change: max-height;
+}
+
+.todo-header-collapse::after {
+    content: '▼';
+    float: right;
+    transform: rotate(90deg);
+    transition: transform 0.1s ease-out;  
+    will-change: transform;
+}
+
+
+.todo-header-active::after {
+    transform: rotate(0deg);
+}
+
+.force-disable-transition {
+    transition: none !important
 }

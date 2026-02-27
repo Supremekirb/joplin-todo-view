@@ -13,6 +13,34 @@ const enum backgroundStyles {
     Default, // match note sidebar. --joplin-background-color3
 }
 
+const enum todoCategories {
+    Overdue,
+    Upcoming,
+    NoDue,
+    Completed
+}
+
+const todoCategoryHTMLIDs = {
+    [todoCategories.Overdue]: "todo-category-overdue",
+    [todoCategories.Upcoming]: "todo-category-upcoming",
+    [todoCategories.NoDue]: "todo-category-nodue",
+    [todoCategories.Completed]: "todo-category-completed"
+}
+
+const todoCategoryHTMLIDBackrefs = {
+    [todoCategoryHTMLIDs[todoCategories.Overdue]]: todoCategories.Overdue,
+    [todoCategoryHTMLIDs[todoCategories.Upcoming]]: todoCategories.Upcoming,
+    [todoCategoryHTMLIDs[todoCategories.NoDue]]: todoCategories.NoDue,
+    [todoCategoryHTMLIDs[todoCategories.Completed]]: todoCategories.Completed
+}
+
+var collapsedCategories = {
+    [todoCategories.Overdue]: false,
+    [todoCategories.Upcoming]: false,
+    [todoCategories.NoDue]: false,
+    [todoCategories.Completed]: false,
+}
+
 const settingsSectionName = 'todo-view-settings'
 const settingDisplayStyle = 'todo-view-style'
 const settingTruncateMidnight = 'todo-view-truncate-midnight'
@@ -119,6 +147,11 @@ joplin.plugins.register({
                     await updateTodoView()
                     break;
                 }
+                // collapse/expand a category
+                case 'toggleCategory': {
+                    collapsedCategories[todoCategoryHTMLIDBackrefs[message.elementID]] = message.collapsed
+                    break;
+                }
             }
 
         });
@@ -178,10 +211,10 @@ joplin.plugins.register({
                 const content = hasAnyTodos
                     ? `
                         <h1>To-do</h1>
-                        ${generateCategoryHtml('Overdue', categories.overdue, style, truncateMidnight, showCheckbox)}
-                        ${generateCategoryHtml('Upcoming', categories.upcoming, style, truncateMidnight, showCheckbox)}
-                        ${generateCategoryHtml('No due date', categories.noDueDate, style, truncateMidnight, showCheckbox)}
-                        ${!hideCompleted ? generateCategoryHtml('Completed', categories.completed, style, truncateMidnight, showCheckbox) : ""}
+                        ${generateCategoryHtml(todoCategories.Overdue, 'Overdue', categories.overdue, style, truncateMidnight, showCheckbox)}
+                        ${generateCategoryHtml(todoCategories.Upcoming, 'Upcoming', categories.upcoming, style, truncateMidnight, showCheckbox)}
+                        ${generateCategoryHtml(todoCategories.NoDue, 'No due date', categories.noDueDate, style, truncateMidnight, showCheckbox)}
+                        ${!hideCompleted ? generateCategoryHtml(todoCategories.Completed, 'Completed', categories.completed, style, truncateMidnight, showCheckbox) : ""}
                     `
                     : `
                         <h1>To-do</h1>
@@ -340,14 +373,17 @@ function noteHtml(note, style, truncate_midnight, show_checkbox) {
 }
 
 // Generate HTML for a category
-function generateCategoryHtml(title, notes, style, truncate_midnight, show_checkbox) {
+function generateCategoryHtml(category, title, notes, style, truncate_midnight, show_checkbox) {
     const content = notes.length === 0
-        ? `<span class="todo-lesser">No ${title.toLowerCase()} to-dos${title === 'Overdue' ? '!' : '.'}</span>`
+        ? `<span class="todo-lesser todo-no-items">No ${title.toLowerCase()} to-dos${category === todoCategories.Overdue ? '!' : '.'}</span>`
         : notes.map(note => noteHtml(note, style, truncate_midnight, show_checkbox)).join('\n');
 
     return `
-        <h2>${title}<hr></h2>
+        <button type="button" class="todo-header-collapse${collapsedCategories[category] ? '' : ' todo-header-active'}">${title}</button>
+        <hr>
+        <div id="${todoCategoryHTMLIDs[category]}" class="todo-item-list"${collapsedCategories[category] ? ' style="max-height: 0px"' : ''}>
         ${content}
+        </div>
     `;
 }
 
