@@ -25,6 +25,7 @@
 
 .todo-no-items {
     margin: 1em;
+    display: inline-block;
 }
 
 .toolbarIcon {
