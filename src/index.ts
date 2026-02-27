@@ -41,12 +41,17 @@ var collapsedCategories = {
     [todoCategories.Completed]: false,
 }
 
+var ignoredTags: String[] = []
+var ignoredNotebooks: String[] = []
+
 const settingsSectionName = 'todo-view-settings'
 const settingDisplayStyle = 'todo-view-style'
 const settingTruncateMidnight = 'todo-view-truncate-midnight'
 const settingHideCompleted = 'todo-view-hide-completed'
 const settingShowCheckbox = 'todo-view-show-checkbox'
 const settingBackgroundStyle = 'todo-view-bg-style'
+const settingIgnoreTags = 'todo-view-ignore-tags'
+const settingIgnoreNotebooks = 'todo-view-ignore-notebooks'
 
 const registerSettings = async () => {
     const sectionName = settingsSectionName;
@@ -108,7 +113,25 @@ const registerSettings = async () => {
                 [backgroundStyles.Default]: "Default",
                 [backgroundStyles.Editor]: "Match editor",
             }
-        }
+        },
+        [settingIgnoreTags]: {
+            section: sectionName,
+            label: "Ignore to-do items with these tags",
+            description:
+                "Comma-separated list of tags. Items that have any of these tags will not be displayed.",
+            public: true,
+            type: SettingItemType.String,
+            value: [],
+        },
+        [settingIgnoreNotebooks]: {
+            section: sectionName,
+            label: "Ignore to-do items within notebooks with these IDs",
+            description:
+                "Comma-separated list of notebook IDs. Items in any of these notebooks will not be displayed. You can get a notebook's ID by installing the 'Get Notebook ID' or 'Templates' plugins, then right-clicking a notebook and selecting 'Copy notebook ID'.",
+            public: true,
+            type: SettingItemType.String,
+            value: [],
+        },
     })
 }
 
@@ -157,9 +180,22 @@ joplin.plugins.register({
         });
 
         async function updateTodoView() {
+            // Recalculate list of ignored notebooks
+            const ignored_notebooks_array: String[] = (await joplin.settings.value(settingIgnoreNotebooks)).split(",")
+            for (let i = 0; i < ignored_notebooks_array.length; i++) {
+                ignored_notebooks_array[i] = ignored_notebooks_array[i].trim()
+            }
+            ignoredNotebooks = ignored_notebooks_array
+            // Recalculate list of ignored tags
+            const ignored_tags_array: String[] = (await joplin.settings.value(settingIgnoreTags)).split(",")
+            for (let i = 0; i < ignored_tags_array.length; i++) {
+                ignored_tags_array[i] = ignored_tags_array[i].trim()
+            }
+            ignoredTags = ignored_tags_array
+
             // Fetch all todo notes with pagination
             async function fetchAllTodos() {
-                const fields = ["id", "todo_due", "todo_completed", "title", "created_time"];
+                const fields = ["id", "todo_due", "todo_completed", "title", "created_time", "parent_id"];
                 const query = "type:todo";
                 let notes = [];
                 let page = 1;
@@ -201,7 +237,7 @@ joplin.plugins.register({
                     return;
                 }
 
-                const categories = categorizeNotes(notes);
+                const categories = await categorizeNotes(notes);
                 const hasAnyTodos = Object.values(categories).some(category => category.length > 0);
                 const style = await joplin.settings.value(settingDisplayStyle)
                 const truncateMidnight = await joplin.settings.value(settingTruncateMidnight)
@@ -275,8 +311,8 @@ joplin.plugins.register({
     },
 });
 
-// Categorize notes by their status
-function categorizeNotes(notes) {
+// Categorize notes by their status & remove ones we're ignoring
+async function categorizeNotes(notes) {
     const now = Date.now();
     const categories = {
         overdue: [],
@@ -285,7 +321,25 @@ function categorizeNotes(notes) {
         completed: []
     };
 
-    notes.forEach(note => {
+    continue_note: for (let note of notes) {
+        if (ignoredTags.length > 0) {
+            let tags = []
+            do {
+                var tags_query = await joplin.data.get(["notes", note.id, "tags"], null)
+                tags = tags.concat(tags_query.items)
+            } while (tags_query.has_more)
+            for (let tag of tags) {
+                if (ignoredTags.includes(tag.title)) {
+                    continue continue_note; 
+                }
+            }
+        }
+        if (ignoredNotebooks.length > 0) {
+            if (ignoredNotebooks.includes(note.parent_id)) {
+                continue continue_note;
+            }
+        }
+
         if (note.todo_completed) {
             categories.completed.push(note);
         } else if (note.todo_due) {
@@ -293,7 +347,7 @@ function categorizeNotes(notes) {
         } else {
             categories.noDueDate.push(note);
         }
-    });
+    };
 
     // Sort all categories
     const sortByDate = (a, b) => a.todo_due - b.todo_due;
