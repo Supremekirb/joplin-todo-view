@@ -1,12 +1,6 @@
 document.addEventListener('click', async event => {
 	const element = event.target;
-	if (element.className === 'todo-goto-link') {
-		webviewApi.postMessage({
-			name: 'openNote',
-			id: element.dataset.id,
-		});
-	}
-	else if (element.className === 'todo-checkbox') {
+	if (element.className === 'todo-checkbox') {
 		webviewApi.postMessage({
 			name: 'setChecked',
 			id: element.dataset.id,
@@ -14,6 +8,15 @@ document.addEventListener('click', async event => {
 		})
 	}
 	else {
+		var gotoLink = element.closest(".todo-goto-link")
+		if (gotoLink) {
+			webviewApi.postMessage({
+				name: 'openNote',
+				id: gotoLink.dataset.id
+			})
+			return
+		}
+
 		var collapseButton = element.closest(".todo-header-collapse")
 		if (collapseButton) {
 			// An additional `nextElementSibling` to skip the <hr>

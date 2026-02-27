@@ -364,8 +364,7 @@ function noteHtml(note, style, truncate_midnight, show_checkbox) {
             return `
             <p class="old-todo-item">
                 ${checkbox}
-                <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)}</a>
-                <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span>
+                <a class="todo-goto-link" href=# data-id="${escapeHtml(note.id)}">${escapeHtml(formattedTitle)} <span class="old-todo-lesser">${escapeHtml(formattedDate)}</span></a>
             </p>
             `
         }

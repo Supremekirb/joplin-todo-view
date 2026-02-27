@@ -76,6 +76,10 @@
     font-size: 80%;
 }
 
+.todo-goto-link {
+    width: 100%;
+}
+
 .todo-header-collapse {
     color: var(--joplin-color);
     background-color: inherit;
